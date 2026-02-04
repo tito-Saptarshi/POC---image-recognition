@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState } from "react";
+import "./App.css";
 
-import './App.css'
-import UploadOptions from './UploadOptions';
-import ResponseDisplay from './ResponseDisplay';
-import { processImage } from './mockApi';
-import CameraCapture from './CameraCapture';
-import { sendImageToApi } from './api';
+import UploadOptions from "./UploadOptions";
+import ResponseDisplay from "./ResponseDisplay";
+import CameraCapture from "./CameraCapture";
+
+import { sendImageToApi, sendZipToApi } from "./api";
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -25,54 +25,35 @@ function App() {
     setIsLoading(true);
     setApiResult(null);
 
-    const response = await processImage({
-      image: file,
-      title: pendingTitle,
-    });
+    try {
+      const result = await sendImageToApi({
+        image: file,
+        title: pendingTitle,
+      });
 
-    setApiResult(response);
-    setIsLoading(false);
-    setPendingTitle(null);
+      setApiResult(result);
+    } catch (err) {
+      console.error(err);
+      setApiResult({ message: "Error", result: { label: "-", confidence: "-", price: "-" } });
+    } finally {
+      setIsLoading(false);
+      setPendingTitle(null);
+    }
   };
 
-// repolace with real api 
-// api call functino in import 
-  const handleCameraCapturePreview = async (file) => {
-  // preview
-  const reader = new FileReader();
-  reader.onloadend = () => setUploadedImage(reader.result);
-  reader.readAsDataURL(file);
-
-  setIsLoading(true);
-  setApiResult(null);
-
-  try {
-    const result = await sendImageToApi({
-      image: file,
-      title: pendingTitle, // null if not provided
-    });
-
-    setApiResult(result);
-  } catch (err) {
-    console.error(err);
-    setApiResult({ error: "Failed to process image" });
-  } finally {
-    setIsLoading(false);
-    setPendingTitle(null);
-  }
-};
-
-  const handleZipUpload = (file) => {
+  const handleZipUpload = async (file) => {
     setIsLoading(true);
     setApiResult(null);
 
-    setTimeout(() => {
-      setApiResult({
-        message: "ZIP processed successfully",
-        result: { label: "Batch Upload", confidence: "-", price: "-" },
-      });
+    try {
+      const result = await sendZipToApi(file);
+      setApiResult(result);
+    } catch (err) {
+      console.error(err);
+      setApiResult({ message: "ZIP failed", result: { label: "-", confidence: "-", price: "-" } });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -107,4 +88,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
