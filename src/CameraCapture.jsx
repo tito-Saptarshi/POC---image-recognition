@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Button } from "./components/ui/button";
 
 export default function CameraCapture({ onCapture, onClose }) {
@@ -6,34 +6,61 @@ export default function CameraCapture({ onCapture, onClose }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
+const stopStream = useCallback(() => {
+  console.log('Stopping stream...'); // Debug
+  if (streamRef.current) {
+    const tracks = streamRef.current.getTracks();
+    console.log(`Stopping ${tracks.length} tracks`); // Should be 1 (video)
+    tracks.forEach((track, i) => {
+      console.log(`Stopping track ${i}:`, track.kind, track.readyState); // Check 'live'/'ended'
+      track.stop();
+    });
+    streamRef.current = null;
+  }
+  if (videoRef.current) {
+    videoRef.current.srcObject = null;
+    videoRef.current.pause(); // Extra pause
+  }
+  console.log('Stream stopped'); // Confirm
+}, []);
+
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment" } })
       .then((stream) => {
         streamRef.current = stream;
-        videoRef.current.srcObject = stream;
-      });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      })
+      .catch(console.error);
 
     return () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopStream();
     };
-  }, []);
+  }, [stopStream]);
 
   const capture = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
+    if (!video || !canvas) return;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
 
     canvas.toBlob((blob) => {
-      const file = new File([blob], "capture.jpg", {
-        type: "image/jpeg",
-      });
+      const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
       onCapture(file);
-      onClose();
+      stopStream(); // Stop immediately after capture
     });
+  };
+
+  const handleClose = () => {
+    stopStream();
+    onClose();
   };
 
   return (
@@ -56,7 +83,7 @@ export default function CameraCapture({ onCapture, onClose }) {
         </Button>
 
         <Button
-          onClick={onClose}
+          onClick={handleClose}
           className="bg-red-500 text-white px-6 py-3 rounded-full"
         >
           Cancel
